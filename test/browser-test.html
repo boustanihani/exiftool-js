@@ -1,0 +1,61 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>exiftool-js browser test</title></head>
+<body>
+<pre id="log">running...</pre>
+<script type="module">
+// Runs reads and writes of the test files in the browser and publishes the results
+// (as SHA-256 digests of the written data and canonical tag lists) in window.__results,
+// for comparison with the same API calls in Node (tools/browser-test.mjs).
+import { ExifTool } from '../dist/exiftool.js';
+
+const log = (s) => { document.getElementById('log').textContent += '\n' + s; };
+const hex = (buf) => [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('');
+const sha = async (u8) => hex(await crypto.subtle.digest('SHA-256', u8));
+async function canon(v) {
+  if (v === null || v === undefined) return null;
+  if (v instanceof Uint8Array) return 'BIN:' + v.length + ':' + await sha(v);
+  if (Array.isArray(v)) return Promise.all(v.map(canon));
+  if (typeof v === 'object') { const o = {}; for (const k of Object.keys(v).sort()) o[k] = await canon(v[k]); return o; }
+  return v;
+}
+try {
+  const t0 = performance.now();
+  const et = await ExifTool.create();
+  log(`created in ${Math.round(performance.now() - t0)} ms, ExifTool ${et.version}`);
+  const files = await (await fetch('browser-test-files.json')).json();
+  const jobs = (await (await fetch('browser-test-jobs.json')).json());
+  const results = [];
+  for (const f of files) {
+    const data = new Uint8Array(await (await fetch(f.url)).arrayBuffer());
+    for (const job of jobs) {
+      const t = performance.now();
+      let r;
+      if (job.kind === 'read') {
+        const res = await et.read(new Blob([data]), job.params);
+        r = { tags: await canon(res.tags), warnings: res.warnings, error: res.error ?? null };
+      } else {
+        const res = await et.write(data, job.params);
+        r = { data: res.data ? res.data.length + ':' + await sha(res.data) : null, changed: res.changed, warnings: res.warnings, error: res.error ?? null };
+      }
+      results.push({ id: f.name + '|' + job.name, ms: Math.round(performance.now() - t), result: r });
+    }
+    log(`${f.name}: done`);
+  }
+  // the Web Worker version must give the same results
+  const w = await ExifTool.createWorker();
+  const data0 = new Uint8Array(await (await fetch(files[0].url)).arrayBuffer());
+  const wr = await w.read(new Blob([data0]), jobs[0].params);
+  const ww = await w.write(data0, jobs.find((j) => j.kind === 'write').params);
+  w.terminate();
+  results.push({ id: files[0].name + '|worker-read', ms: 0, result: { tags: await canon(wr.tags), warnings: wr.warnings, error: wr.error ?? null } });
+  results.push({ id: files[0].name + '|worker-write', ms: 0, result: { data: ww.data ? ww.data.length + ':' + await sha(ww.data) : null, changed: ww.changed, warnings: ww.warnings, error: ww.error ?? null } });
+  window.__results = results;
+  log('DONE');
+} catch (e) {
+  window.__results = { exception: String(e && e.stack || e) };
+  log('EXCEPTION ' + (e && e.stack || e));
+}
+</script>
+</body>
+</html>

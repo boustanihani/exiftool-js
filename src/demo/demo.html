@@ -1,0 +1,633 @@
+<title>exiftool-js Metadata Editor</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: file and actions on the left, the tag sheet on the right; one column on phones.
+   Always dark, whatever the system or viewer theme (a darkroom: images read best on a dark
+   surround). Neutrals lean slightly toward the accent (fixer-bath teal). */
+:root, :root[data-theme] {
+  --bg: #0f1516;
+  --surface: #161e20;
+  --sunken: #1c2628;
+  --line: #2b383a;
+  --fg: #e3eceb;
+  --muted: #93a5a6;
+  --accent: #4fc7bd;
+  --accent-ink: #062523;
+  --accent-soft: #173836;
+  --warn: #f0b45a;
+  --warn-soft: #3a2a10;
+  --bad: #ff8a80;
+  --add: #6fd391;
+  --font-ui: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-head: "IBM Plex Sans Condensed", "Arial Narrow", system-ui, sans-serif;
+  --font-data: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --radius: 6px;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg); font: 15px/1.5 var(--font-ui);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 20px 40px;
+}
+.wrap { max-width: 1240px; margin: 0 auto; display: grid; gap: 18px; }
+header.top { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 20px; }
+h1 { font: 600 1.6rem/1.15 var(--font-head); margin: 0; letter-spacing: 0.005em; text-wrap: balance; }
+h1 .js { color: var(--accent); }
+.lede { margin: 2px 0 0; color: var(--muted); max-width: 62ch; font-size: 0.95rem; }
+.status { font: 500 0.8rem/1.4 var(--font-data); color: var(--muted); display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--warn); flex: none; }
+.dot.ready { background: var(--add); }
+.dot.err { background: var(--bad); }
+.layout { display: grid; grid-template-columns: minmax(0, 340px) minmax(0, 1fr); gap: 18px; align-items: start; }
+@media (max-width: 880px) { .layout { grid-template-columns: minmax(0, 1fr); } }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); min-width: 0; }
+.side { display: grid; gap: 14px; padding: 14px; }
+.drop {
+  border: 1.5px dashed var(--line); border-radius: var(--radius); padding: 14px; text-align: center;
+  color: var(--muted); font-size: 0.9rem; cursor: pointer; background: var(--sunken);
+}
+.drop.over { border-color: var(--accent); color: var(--fg); background: var(--accent-soft); }
+.drop strong { color: var(--fg); font-weight: 600; }
+.drop input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.preview {
+  aspect-ratio: 3 / 2; max-width: 100%; border-radius: 4px; background: var(--sunken);
+  display: grid; place-items: center; overflow: hidden; color: var(--muted); font-size: 0.85rem; text-align: center; padding: 0;
+}
+.preview img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.facts { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 3px 12px; margin: 0; font-size: 0.85rem; }
+.facts dt { color: var(--muted); }
+.facts dd { margin: 0; font-family: var(--font-data); font-size: 0.8rem; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.sample-note { font-size: 0.8rem; color: var(--warn); background: var(--warn-soft); border-radius: 4px; padding: 6px 8px; margin: 0; }
+.actions { display: grid; gap: 8px; }
+button, .btn {
+  font: 500 0.9rem/1 var(--font-ui); border-radius: 5px; padding: 9px 12px; cursor: pointer;
+  border: 1px solid var(--line); background: var(--surface); color: var(--fg);
+}
+button:hover:not(:disabled) { border-color: var(--accent); }
+button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+button.primary:hover:not(:disabled) { filter: brightness(1.08); }
+button:disabled { opacity: 0.45; cursor: not-allowed; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.small { font-size: 0.8rem; color: var(--muted); margin: 0; }
+.main { display: grid; min-width: 0; }
+.tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--line); padding: 8px 10px 0; flex-wrap: wrap; }
+.tab {
+  border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: none; padding: 9px 12px 10px;
+  color: var(--muted); font: 600 0.9rem/1 var(--font-head); letter-spacing: 0.02em;
+}
+.tab[aria-selected="true"] { color: var(--fg); border-bottom-color: var(--accent); }
+.tab .count { font: 500 0.75rem var(--font-data); color: var(--muted); margin-left: 4px; }
+.view { padding: 14px; min-width: 0; }
+.toolbar { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; margin-bottom: 12px; }
+.toolbar input[type="search"] { flex: 1 1 220px; min-width: 0; }
+input[type="text"], input[type="search"], input[type="number"], textarea, select {
+  font: 0.9rem/1.3 var(--font-ui); color: var(--fg); background: var(--surface);
+  border: 1px solid var(--line); border-radius: 5px; padding: 8px 10px; width: 100%;
+}
+textarea { resize: vertical; min-height: 60px; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 5px; overflow: hidden; }
+.seg button { border: 0; border-radius: 0; padding: 7px 10px; font-size: 0.8rem; background: var(--surface); }
+.seg button[aria-pressed="true"] { background: var(--accent-soft); color: var(--fg); font-weight: 600; }
+label.check { display: inline-flex; gap: 6px; align-items: center; font-size: 0.85rem; color: var(--muted); cursor: pointer; }
+.sheet-wrap { overflow-x: auto; }
+table.sheet { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+table.sheet th, table.sheet td { text-align: left; vertical-align: top; padding: 5px 8px; border-bottom: 1px solid var(--line); }
+table.sheet tr.group th {
+  background: var(--sunken); font: 600 0.8rem/1.3 var(--font-head); letter-spacing: 0.04em; text-transform: uppercase;
+  color: var(--fg); position: sticky; top: 0; border-bottom: 1px solid var(--line);
+}
+table.sheet tr.group th span { font: 500 0.75rem var(--font-data); color: var(--muted); text-transform: none; letter-spacing: 0; margin-left: 6px; }
+td.tag { font-family: var(--font-data); font-size: 0.8rem; color: var(--muted); width: 32%; overflow-wrap: anywhere; }
+td.val { overflow-wrap: anywhere; white-space: pre-wrap; }
+td.val.bin { color: var(--muted); font-style: italic; }
+.empty { color: var(--muted); padding: 18px 4px; font-size: 0.9rem; }
+.form { display: grid; gap: 14px; }
+.fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 16px; }
+@media (max-width: 640px) { .fields { grid-template-columns: minmax(0, 1fr); } }
+.field { display: grid; gap: 4px; min-width: 0; }
+.field.wide { grid-column: 1 / -1; }
+.field label { font: 600 0.85rem var(--font-ui); }
+.field .writes { font: 400 0.72rem/1.35 var(--font-data); color: var(--muted); overflow-wrap: anywhere; }
+fieldset { border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px 12px; margin: 0; display: grid; gap: 10px; min-width: 0; }
+legend { font: 600 0.8rem var(--font-head); letter-spacing: 0.04em; text-transform: uppercase; padding: 0 4px; }
+.custom-row { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr) auto; gap: 8px; align-items: center; }
+@media (max-width: 520px) { .custom-row { grid-template-columns: minmax(0, 1fr); } }
+.form-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.msgs { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.msgs li { font-size: 0.82rem; border-radius: 4px; padding: 6px 8px; background: var(--warn-soft); color: var(--warn); overflow-wrap: anywhere; }
+.msgs li.err { background: transparent; border: 1px solid var(--bad); color: var(--bad); }
+.diff { display: grid; gap: 4px; }
+.diff .row { display: grid; grid-template-columns: 74px minmax(0, 1fr); gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--line); font-size: 0.85rem; }
+.pill { font: 600 0.7rem/1.6 var(--font-data); text-transform: uppercase; letter-spacing: 0.05em; border-radius: 3px; text-align: center; height: fit-content; padding: 0 4px; }
+.pill.added { color: var(--add); border: 1px solid var(--add); }
+.pill.changed { color: var(--warn); border: 1px solid var(--warn); }
+.pill.removed { color: var(--bad); border: 1px solid var(--bad); }
+.diff .k { font-family: var(--font-data); font-size: 0.8rem; color: var(--muted); }
+.diff .v { overflow-wrap: anywhere; }
+.diff .old { text-decoration: line-through; color: var(--muted); }
+.json { font: 0.78rem/1.45 var(--font-data); background: var(--sunken); border-radius: 4px; padding: 10px; overflow: auto; max-height: 60vh; white-space: pre; margin: 0; }
+.foot { color: var(--muted); font-size: 0.8rem; max-width: 80ch; }
+.foot code { font-family: var(--font-data); font-size: 0.78rem; }
+.foot a { color: var(--accent); text-underline-offset: 2px; }
+@media (prefers-reduced-motion: no-preference) { .drop, button { transition: background-color 120ms, border-color 120ms; } }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>exiftool<span class="js">-js</span> Metadata Editor</h1>
+      <p class="lede">Read and edit EXIF, XMP, IPTC and maker notes of JPEG, TIFF, PNG, WebP and HEIC files with ExifTool running entirely in this page. Your files are not uploaded anywhere.</p>
+    </div>
+    <div class="status" id="status" role="status"><span class="dot" id="dot"></span><span id="statusText">Loading ExifTool…</span></div>
+  </header>
+
+  <div class="layout">
+    <aside class="panel side" aria-label="File">
+      <label class="drop" id="drop" for="fileInput">
+        <input type="file" id="fileInput">
+        <strong>Open an image</strong> or drop it here<br>
+        <span class="small">JPEG, TIFF, PNG, WebP, HEIC, BMP and more</span>
+      </label>
+      <div class="preview" id="preview">No image yet</div>
+      <p class="sample-note" id="sampleNote" hidden>This is a generated sample image with the camera metadata of a Canon test file from ExifTool. Open your own image to try it.</p>
+      <dl class="facts" id="facts"></dl>
+      <div class="actions">
+        <button class="primary" id="saveBtn" disabled>Save edited file</button>
+        <button id="jsonBtn" disabled>Save tags as JSON</button>
+        <button id="resetBtn" disabled>Undo all edits</button>
+        <p class="small" id="saveNote"></p>
+      </div>
+    </aside>
+
+    <section class="panel main" aria-label="Metadata">
+      <div class="tabs" role="tablist">
+        <button class="tab" role="tab" id="tab-tags" aria-selected="true" aria-controls="view-tags">Tags<span class="count" id="tagCount"></span></button>
+        <button class="tab" role="tab" id="tab-edit" aria-selected="false" aria-controls="view-edit">Edit</button>
+        <button class="tab" role="tab" id="tab-changes" aria-selected="false" aria-controls="view-changes">Changes<span class="count" id="changeCount"></span></button>
+        <button class="tab" role="tab" id="tab-json" aria-selected="false" aria-controls="view-json">JSON</button>
+      </div>
+
+      <div class="view" id="view-tags" role="tabpanel" aria-labelledby="tab-tags">
+        <div class="toolbar">
+          <input type="search" id="filter" placeholder="Filter tags or values, eg. GPS, Canon, 2004" aria-label="Filter tags">
+          <div class="seg" role="group" aria-label="Group tags by">
+            <button id="fam0" aria-pressed="false" title="ExifTool group family 0">Format</button>
+            <button id="fam1" aria-pressed="true" title="ExifTool group family 1">Location</button>
+            <button id="fam2" aria-pressed="false" title="ExifTool group family 2">Category</button>
+          </div>
+          <label class="check"><input type="checkbox" id="raw"> Raw values</label>
+        </div>
+        <div class="sheet-wrap"><table class="sheet" id="sheet"><tbody><tr><td class="empty">Loading…</td></tr></tbody></table></div>
+      </div>
+
+      <div class="view" id="view-edit" role="tabpanel" aria-labelledby="tab-edit" hidden>
+        <form class="form" id="form" autocomplete="off">
+          <div class="fields">
+            <div class="field wide"><label for="f-title">Title</label><input type="text" id="f-title"><span class="writes">XMP-dc:Title</span></div>
+            <div class="field wide"><label for="f-desc">Description</label><textarea id="f-desc" rows="3"></textarea><span class="writes" id="w-desc"></span></div>
+            <div class="field wide"><label for="f-keywords">Keywords</label><input type="text" id="f-keywords" placeholder="comma separated"><span class="writes" id="w-keywords"></span></div>
+            <div class="field"><label for="f-creator">Creator</label><input type="text" id="f-creator"><span class="writes" id="w-creator"></span></div>
+            <div class="field"><label for="f-rights">Copyright</label><input type="text" id="f-rights"><span class="writes" id="w-rights"></span></div>
+            <div class="field"><label for="f-date">Date taken</label><input type="text" id="f-date" placeholder="YYYY:MM:DD HH:MM:SS"><span class="writes">ExifIFD:DateTimeOriginal</span></div>
+            <div class="field"><label for="f-lat">GPS latitude, longitude</label>
+              <div class="custom-row" style="grid-template-columns: minmax(0,1fr) minmax(0,1fr);">
+                <input type="number" id="f-lat" step="any" min="-90" max="90" placeholder="52.5163" aria-label="Latitude">
+                <input type="number" id="f-lon" step="any" min="-180" max="180" placeholder="13.3777" aria-label="Longitude">
+              </div>
+              <span class="writes">GPS:GPSLatitude/Longitude (+Ref), degrees, negative for S/W</span></div>
+          </div>
+          <fieldset>
+            <legend>Remove</legend>
+            <label class="check"><input type="checkbox" id="f-strip"> All metadata first (keeps the fields above that you fill in)</label>
+            <label class="check"><input type="checkbox" id="f-nogps"> GPS location</label>
+          </fieldset>
+          <fieldset>
+            <legend>Any tag</legend>
+            <p class="small">Use ExifTool tag names, eg. <code>XMP-photoshop:City</code>, <code>IFD0:Software</code>, <code>XMP:Rating</code>. An empty value deletes the tag.</p>
+            <div id="customRows" class="form"></div>
+            <div><button type="button" id="addRow">Add a tag</button></div>
+          </fieldset>
+          <div class="form-actions">
+            <button class="primary" type="submit" id="applyBtn" disabled>Apply changes</button>
+            <span class="small" id="applyNote"></span>
+          </div>
+          <ul class="msgs" id="writeMsgs"></ul>
+        </form>
+      </div>
+
+      <div class="view" id="view-changes" role="tabpanel" aria-labelledby="tab-changes" hidden>
+        <div id="diff" class="diff"><p class="empty">Changes appear here after you apply edits.</p></div>
+      </div>
+
+      <div class="view" id="view-json" role="tabpanel" aria-labelledby="tab-json" hidden>
+        <div class="toolbar"><button id="copyJson">Copy JSON</button><span class="small" id="copyNote"></span></div>
+        <pre class="json" id="json"></pre>
+      </div>
+    </section>
+  </div>
+
+  <p class="foot">ExifTool by Phil Harvey, translated to JavaScript by <a href="https://github.com/boustanihani/exiftool-js" target="_blank" rel="noopener">exiftool-js</a> (source, documentation and license on GitHub). In this page, everything runs in your browser. Advanced ExifTool features that evaluate code at run time (eg. <code>${tag;expr}</code> formatting) need a page whose Content Security Policy allows <code>eval</code>.</p>
+</div>
+
+<script type="module">
+const $ = (id) => document.getElementById(id);
+const state = {
+  et: null, original: null, current: null, name: '', isSample: false,
+  family: 1, raw: false, tags: null, entries: [], prevTags: null, fileType: '', ext: '', form0: null, edits: 0,
+};
+// Saving: inside the Claude viewer through its downloads capability; on any other host
+// (eg. this page served next to dist/) through an ordinary browser download.
+const browserDownloads = {
+  direct: true,
+  async save({ filename, data }) {
+    const url = URL.createObjectURL(data instanceof Blob ? data : new Blob([data]));
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.append(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 30000);
+    return { status: 'saved' };
+  },
+};
+const downloadsP = window.claude && typeof window.claude.use === 'function'
+  ? window.claude.use('downloads') : Promise.resolve(browserDownloads);
+
+function setStatus(text, kind) {
+  $('statusText').textContent = text;
+  $('dot').className = 'dot' + (kind ? ' ' + kind : '');
+}
+const fmtBytes = (n) => n < 1024 ? `${n} bytes` : n < 1048576 ? `${(n / 1024).toFixed(1)} kB` : `${(n / 1048576).toFixed(2)} MB`;
+
+// ExifTool's way of printing lists and structures
+function fmt(v) {
+  if (v === null || v === undefined) return '';
+  if (v instanceof Uint8Array) return `(Binary data ${v.length} bytes)`;
+  if (Array.isArray(v)) return v.map((x) => (typeof x === 'object' && x !== null ? fmt(x) : String(x))).join(', ');
+  if (typeof v === 'object') return '{' + Object.entries(v).map(([k, x]) => `${k}=${fmt(x)}`).join(',') + '}';
+  return String(v);
+}
+
+async function init() {
+  try {
+    const t0 = performance.now();
+    const { ExifTool } = await import('./exiftool.js');
+    state.et = await ExifTool.create();
+    setStatus(`Ready · ExifTool ${state.et.version} · started in ${Math.round(performance.now() - t0)} ms`, 'ready');
+    const res = await fetch('samples/sample.jpg');
+    if (res.ok) await openData(new Uint8Array(await res.arrayBuffer()), 'sample.jpg', true);
+    else $('sheet').innerHTML = '<tbody><tr><td class="empty">Open an image to see its metadata.</td></tr></tbody>';
+  } catch (e) {
+    setStatus('ExifTool could not start: ' + (e && e.message || e), 'err');
+  }
+  const dl = await downloadsP;
+  if (!dl) $('saveNote').textContent = 'Saving files is not available in this view.';
+}
+
+async function openData(data, name, isSample) {
+  state.original = data; state.current = data; state.name = name; state.isSample = isSample;
+  state.prevTags = null; state.edits = 0;
+  $('sampleNote').hidden = !isSample;
+  $('diff').innerHTML = '<p class="empty">Changes appear here after you apply edits.</p>';
+  $('changeCount').textContent = '';
+  $('writeMsgs').innerHTML = '';
+  await refresh(true);
+  fillForm();
+  updateButtons();
+}
+
+async function refresh(newFile) {
+  const t0 = performance.now();
+  const opts = state.raw ? { PrintConv: 0 } : {};
+  const r = await state.et.read(state.current, { groupNames: state.family, numbers: false, options: opts });
+  const ms = Math.round(performance.now() - t0);
+  state.tags = r.tags; state.entries = r.entries;
+  // values always in printed form for the form and change list
+  state.printTags = state.raw ? (await state.et.read(state.current, { groupNames: 1, numbers: false })).tags : (state.family === 1 ? r.tags : (await state.et.read(state.current, { groupNames: 1, numbers: false })).tags);
+  state.fileType = state.printTags['File:FileType'] || '';
+  state.ext = String(state.printTags['File:FileTypeExtension'] || '').toLowerCase();
+  renderSheet();
+  renderFacts(ms, r);
+  renderJson();
+  if (newFile || state.edits) await renderPreview();
+}
+
+function renderFacts(ms, r) {
+  const t = state.printTags;
+  const groups = new Set(state.entries.map((e) => e.groups[1]));
+  const rows = [
+    ['File', state.name],
+    ['Type', t['File:FileType'] ? `${t['File:FileType']} (${t['File:MIMEType'] || ''})` : 'unknown'],
+    ['Size', fmtBytes(state.current.length)],
+    ['Image', t['Composite:ImageSize'] || '–'],
+    ['Camera', (() => { const mk = String(t['IFD0:Make'] || ''), md = String(t['IFD0:Model'] || ''); return (md.startsWith(mk.split(' ')[0]) ? md : [mk, md].filter(Boolean).join(' ')) || '–'; })()],
+    ['Tags', `${state.entries.length} in ${groups.size} groups`],
+    ['Read in', `${ms} ms`],
+  ];
+  if (r.error) rows.push(['Error', r.error]);
+  $('facts').innerHTML = '';
+  for (const [k, v] of rows) {
+    const dt = document.createElement('dt'); dt.textContent = k;
+    const dd = document.createElement('dd'); dd.textContent = v;
+    $('facts').append(dt, dd);
+  }
+  $('tagCount').textContent = String(state.entries.length);
+}
+
+let previewUrl = null;
+async function renderPreview() {
+  const box = $('preview');
+  if (previewUrl) URL.revokeObjectURL(previewUrl);
+  previewUrl = null;
+  const mime = state.printTags['File:MIMEType'] || '';
+  const show = (blob, note) => new Promise((resolve) => {
+    const url = URL.createObjectURL(blob);
+    const img = new Image();
+    img.alt = 'Preview of ' + state.name;
+    img.onload = () => { box.innerHTML = ''; box.append(img); previewUrl = url; if (note) box.title = note; resolve(true); };
+    img.onerror = () => { URL.revokeObjectURL(url); resolve(false); };
+    img.src = url;
+  });
+  if (/^image\//.test(mime) && await show(new Blob([state.current], { type: mime }))) return;
+  // the browser can't show this format (eg. HEIC, TIFF): use an embedded preview if there is one
+  const r = await state.et.read(state.current, { tags: ['PreviewImage', 'JpgFromRaw', 'OtherImage', 'ThumbnailImage'], binary: true });
+  const imgs = Object.values(r.tags).filter((v) => v instanceof Uint8Array).sort((a, b) => b.length - a.length);
+  if (imgs.length && await show(new Blob([imgs[0]], { type: 'image/jpeg' }), 'Embedded preview image')) return;
+  box.textContent = `This browser can't display ${state.fileType || 'this file'}, and the file has no embedded preview.`;
+}
+
+function renderSheet() {
+  const q = $('filter').value.trim().toLowerCase();
+  const tbody = document.createElement('tbody');
+  const byGroup = new Map();
+  for (const e of state.entries) {
+    const val = fmt(e.value);
+    if (q && !e.key.toLowerCase().includes(q) && !val.toLowerCase().includes(q)) continue;
+    const g = e.groups[state.family] || '';
+    if (!byGroup.has(g)) byGroup.set(g, []);
+    byGroup.get(g).push([e, val]);
+  }
+  for (const [g, rows] of byGroup) {
+    const tr = document.createElement('tr'); tr.className = 'group';
+    const th = document.createElement('th'); th.colSpan = 2; th.scope = 'colgroup';
+    th.textContent = g; const n = document.createElement('span'); n.textContent = rows.length; th.append(n);
+    tr.append(th); tbody.append(tr);
+    for (const [e, val] of rows) {
+      const r = document.createElement('tr');
+      const a = document.createElement('td'); a.className = 'tag'; a.textContent = e.key.replace(/^[^:]*:/, '');
+      a.title = e.key;
+      const b = document.createElement('td'); b.className = 'val'; b.textContent = val;
+      if (/^\(Binary data \d+ bytes/.test(val)) b.classList.add('bin');
+      r.append(a, b); tbody.append(r);
+    }
+  }
+  if (!byGroup.size) tbody.innerHTML = `<tr><td class="empty">${state.entries.length ? 'No tags match the filter.' : 'No metadata found.'}</td></tr>`;
+  $('sheet').replaceChildren(tbody);
+}
+
+function renderJson() {
+  $('json').textContent = JSON.stringify(state.tags, null, 2);
+}
+
+// ---------------------------------------------------------------- editing
+const first = (...keys) => { for (const k of keys) { const v = state.printTags[k]; if (v !== undefined && v !== null && v !== '') return v; } return ''; };
+const listOf = (v) => (Array.isArray(v) ? v : v ? [v] : []).map(String);
+function hasIptc() { return /^(jpe?g|tiff?)$/.test(state.ext); }
+function fillForm() {
+  const f0 = {
+    title: String(first('XMP-dc:Title', 'IPTC:ObjectName')),
+    desc: String(first('XMP-dc:Description', 'IFD0:ImageDescription', 'IPTC:Caption-Abstract')),
+    keywords: listOf(first('XMP-dc:Subject', 'IPTC:Keywords')).join(', '),
+    creator: listOf(first('XMP-dc:Creator', 'IFD0:Artist', 'IPTC:By-line')).join('; '),
+    rights: String(first('XMP-dc:Rights', 'IFD0:Copyright', 'IPTC:CopyrightNotice')),
+    date: String(first('ExifIFD:DateTimeOriginal', 'XMP-exif:DateTimeOriginal', 'XMP-photoshop:DateCreated')),
+    lat: '', lon: '',
+  };
+  // signed decimal degrees from the raw GPS values
+  state.et.read(state.current, { tags: ['Composite:GPSLatitude', 'Composite:GPSLongitude'], options: { PrintConv: 0 }, groupNames: false }).then((r) => {
+    const la = r.tags.GPSLatitude, lo = r.tags.GPSLongitude;
+    if (la !== undefined && lo !== undefined) { f0.lat = String(la); f0.lon = String(lo); $('f-lat').value = f0.lat; $('f-lon').value = f0.lon; }
+  });
+  state.form0 = f0;
+  $('f-title').value = f0.title; $('f-desc').value = f0.desc; $('f-keywords').value = f0.keywords;
+  $('f-creator').value = f0.creator; $('f-rights').value = f0.rights; $('f-date').value = f0.date;
+  $('f-lat').value = ''; $('f-lon').value = '';
+  $('f-strip').checked = false; $('f-nogps').checked = false;
+  $('customRows').innerHTML = ''; addCustomRow();
+  const iptc = hasIptc();
+  $('w-desc').textContent = 'XMP-dc:Description, IFD0:ImageDescription' + (iptc ? ', IPTC:Caption-Abstract' : '');
+  $('w-keywords').textContent = 'XMP-dc:Subject' + (iptc ? ', IPTC:Keywords' : '');
+  $('w-creator').textContent = 'XMP-dc:Creator, IFD0:Artist' + (iptc ? ', IPTC:By-line' : '') + ' (several: separate with ;)';
+  $('w-rights').textContent = 'XMP-dc:Rights, IFD0:Copyright' + (iptc ? ', IPTC:CopyrightNotice' : '');
+  $('applyNote').textContent = '';
+}
+let rowId = 0;
+function addCustomRow() {
+  const id = ++rowId;
+  const row = document.createElement('div'); row.className = 'custom-row';
+  row.innerHTML = `<input type="text" id="ct-${id}" placeholder="Tag, eg. XMP-photoshop:City" aria-label="Tag name">
+    <input type="text" id="cv-${id}" placeholder="Value (empty = delete)" aria-label="Value">
+    <button type="button" aria-label="Remove this row">Remove</button>`;
+  row.querySelector('button').onclick = () => row.remove();
+  $('customRows').append(row);
+}
+
+function collectEdits() {
+  const f0 = state.form0;
+  const strip = $('f-strip').checked;
+  const changed = (id, key) => strip || $(id).value.trim() !== String(f0[key]).trim();
+  const tags = {};
+  const ops = [];
+  if (strip) tags.all = null;
+  const iptc = hasIptc();
+  const text = (id) => $(id).value.trim();
+  const opt = (v) => (v === '' ? null : v);
+  if (changed('f-title', 'title') && (text('f-title') || !strip)) tags['XMP-dc:Title'] = opt(text('f-title'));
+  if (changed('f-desc', 'desc') && (text('f-desc') || !strip)) {
+    const v = opt(text('f-desc'));
+    tags['XMP-dc:Description'] = v; tags['EXIF:ImageDescription'] = v; if (iptc) tags['IPTC:Caption-Abstract'] = v;
+  }
+  if (changed('f-keywords', 'keywords') && (text('f-keywords') || !strip)) {
+    const v = text('f-keywords').split(',').map((s) => s.trim()).filter(Boolean);
+    tags['XMP-dc:Subject'] = v.length ? v : null; if (iptc) tags['IPTC:Keywords'] = v.length ? v : null;
+  }
+  if (changed('f-creator', 'creator') && (text('f-creator') || !strip)) {
+    const v = text('f-creator').split(';').map((s) => s.trim()).filter(Boolean);
+    tags['XMP-dc:Creator'] = v.length ? v : null; tags['EXIF:Artist'] = v.length ? v.join('; ') : null; if (iptc) tags['IPTC:By-line'] = v.length ? v : null;
+  }
+  if (changed('f-rights', 'rights') && (text('f-rights') || !strip)) {
+    const v = opt(text('f-rights'));
+    tags['XMP-dc:Rights'] = v; tags['EXIF:Copyright'] = v; if (iptc) tags['IPTC:CopyrightNotice'] = v;
+  }
+  if (changed('f-date', 'date') && (text('f-date') || !strip)) tags['EXIF:DateTimeOriginal'] = opt(text('f-date'));
+  const la = text('f-lat'), lo = text('f-lon');
+  if ($('f-nogps').checked) { tags['GPS:all'] = null; tags['XMP:GPSLatitude'] = null; tags['XMP:GPSLongitude'] = null; }
+  else if ((la !== String(f0.lat) || lo !== String(f0.lon) || strip) && la !== '' && lo !== '') {
+    const a = Number(la), b = Number(lo);
+    if (!(Math.abs(a) <= 90 && Math.abs(b) <= 180)) throw new Error('Latitude must be between -90 and 90, longitude between -180 and 180.');
+    Object.assign(tags, { 'GPS:GPSLatitude': Math.abs(a), 'GPS:GPSLatitudeRef': a < 0 ? 'S' : 'N', 'GPS:GPSLongitude': Math.abs(b), 'GPS:GPSLongitudeRef': b < 0 ? 'W' : 'E' });
+  }
+  for (const row of $('customRows').children) {
+    const [t, v] = row.querySelectorAll('input');
+    const name = t.value.trim();
+    if (!name) continue;
+    ops.push({ tag: name, value: v.value === '' ? null : v.value });
+  }
+  // store IPTC text as UTF-8 when IPTC is written
+  if (iptc && Object.keys(tags).some((k) => k.startsWith('IPTC:'))) ops.unshift({ tag: 'IPTC:CodedCharacterSet', value: 'UTF8', protected: true });
+  return { tags, ops };
+}
+
+async function apply(ev) {
+  ev.preventDefault();
+  $('writeMsgs').innerHTML = '';
+  let edits;
+  try { edits = collectEdits(); } catch (e) { showMsgs([], e.message); return; }
+  if (!Object.keys(edits.tags).length && !edits.ops.length) { $('applyNote').textContent = 'Nothing to change: edit a field first.'; return; }
+  $('applyBtn').disabled = true;
+  $('applyNote').textContent = 'Writing…';
+  const t0 = performance.now();
+  const before = state.printTags;
+  const r = await state.et.write(state.current, edits);
+  const ms = Math.round(performance.now() - t0);
+  if (!r.data) {
+    $('applyNote').textContent = '';
+    showMsgs(r.warnings, r.error || 'The file could not be written.');
+    $('applyBtn').disabled = false;
+    return;
+  }
+  state.current = r.data;
+  state.edits++;
+  await refresh(false);
+  renderDiff(before, state.printTags);
+  showMsgs(r.warnings, null);
+  fillForm();
+  $('applyNote').textContent = r.changed ? `Written in ${ms} ms. Save the file to keep it.` : 'Nothing needed to change.';
+  updateButtons();
+  if (r.changed) selectTab('changes');
+}
+function showMsgs(warnings, error) {
+  const ul = $('writeMsgs'); ul.innerHTML = '';
+  if (error) { const li = document.createElement('li'); li.className = 'err'; li.textContent = error; ul.append(li); }
+  for (const w of warnings || []) { const li = document.createElement('li'); li.textContent = w; ul.append(li); }
+}
+function renderDiff(a, b) {
+  const skip = (k) => /^(System|ExifTool):|^File:(FileSize|FileModifyDate)/.test(k);
+  const rows = [];
+  for (const k of new Set([...Object.keys(a), ...Object.keys(b)])) {
+    if (skip(k)) continue;
+    const x = k in a ? fmt(a[k]) : undefined, y = k in b ? fmt(b[k]) : undefined;
+    if (x === y) continue;
+    rows.push([x === undefined ? 'added' : y === undefined ? 'removed' : 'changed', k, x, y]);
+  }
+  const order = { changed: 0, added: 1, removed: 2 };
+  rows.sort((p, q) => order[p[0]] - order[q[0]] || p[1].localeCompare(q[1]));
+  const box = $('diff'); box.innerHTML = '';
+  if (!rows.length) { box.innerHTML = '<p class="empty">The file was rewritten, but no tag values changed.</p>'; }
+  for (const [kind, k, x, y] of rows) {
+    const row = document.createElement('div'); row.className = 'row';
+    const pill = document.createElement('span'); pill.className = 'pill ' + kind; pill.textContent = kind;
+    const body = document.createElement('div');
+    const kk = document.createElement('div'); kk.className = 'k'; kk.textContent = k;
+    const vv = document.createElement('div'); vv.className = 'v';
+    if (kind === 'changed') { const o = document.createElement('span'); o.className = 'old'; o.textContent = x; vv.append(o, document.createTextNode(' → ' + y)); }
+    else vv.textContent = kind === 'removed' ? x : y;
+    if (kind === 'removed') vv.classList.add('old');
+    body.append(kk, vv); row.append(pill, body); box.append(row);
+  }
+  $('changeCount').textContent = rows.length ? String(rows.length) : '';
+}
+
+// ---------------------------------------------------------------- saving
+const SAVE_EXT = new Set(['jpg', 'jpeg', 'png', 'webp', 'gif']);
+const crcTable = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+function crc32(u8) { let c = 0xffffffff; for (let i = 0; i < u8.length; i++) c = crcTable[(c ^ u8[i]) & 0xff] ^ (c >>> 8); return (c ^ 0xffffffff) >>> 0; }
+// one-file ZIP archive (stored, not compressed) for file types the viewer can't save directly
+function zipOne(name, data) {
+  const nm = new TextEncoder().encode(name);
+  const crc = crc32(data);
+  const lh = new DataView(new ArrayBuffer(30));
+  lh.setUint32(0, 0x04034b50, true); lh.setUint16(4, 20, true); lh.setUint16(6, 0x0800, true);
+  lh.setUint32(14, crc, true); lh.setUint32(18, data.length, true); lh.setUint32(22, data.length, true); lh.setUint16(26, nm.length, true);
+  const ch = new DataView(new ArrayBuffer(46));
+  ch.setUint32(0, 0x02014b50, true); ch.setUint16(4, 20, true); ch.setUint16(6, 20, true); ch.setUint16(8, 0x0800, true);
+  ch.setUint32(16, crc, true); ch.setUint32(20, data.length, true); ch.setUint32(24, data.length, true); ch.setUint16(28, nm.length, true);
+  const end = new DataView(new ArrayBuffer(22));
+  const cdOff = 30 + nm.length + data.length;
+  end.setUint32(0, 0x06054b50, true); end.setUint16(8, 1, true); end.setUint16(10, 1, true);
+  end.setUint32(12, 46 + nm.length, true); end.setUint32(16, cdOff, true);
+  return new Blob([lh.buffer, nm, data, ch.buffer, nm, end.buffer], { type: 'application/zip' });
+}
+function editedName() {
+  const m = /^(.*?)(\.[^.]*)?$/.exec(state.name);
+  return `${m[1]}-edited${m[2] || (state.ext ? '.' + state.ext : '')}`;
+}
+async function save(filename, data, note) {
+  const dl = await downloadsP;
+  if (!dl) { $('saveNote').textContent = 'Saving files is not available in this view.'; return; }
+  try {
+    await dl.save({ filename, data });
+    $('saveNote').textContent = note || `Saved ${filename}.`;
+  } catch (e) {
+    const code = e && e.code;
+    $('saveNote').textContent = code === 'declined' ? 'Saving was cancelled.' : code === 'rate_limited' ? 'A save is already waiting for confirmation.' : `The file could not be saved (${code || e}).`;
+  }
+}
+$('saveBtn').onclick = async () => {
+  const name = editedName();
+  const ext = (name.split('.').pop() || '').toLowerCase();
+  const dl = await downloadsP;
+  if (SAVE_EXT.has(ext) || (dl && dl.direct)) save(name, new Blob([state.current]));
+  else save(name + '.zip', zipOne(name, state.current), `Saved ${name}.zip (this view saves ${ext.toUpperCase()} files inside a ZIP).`);
+};
+$('jsonBtn').onclick = () => save(state.name.replace(/\.[^.]*$/, '') + '-tags.json', JSON.stringify(state.tags, null, 2));
+$('resetBtn').onclick = () => openData(state.original, state.name, state.isSample);
+$('copyJson').onclick = async () => {
+  try { await navigator.clipboard.writeText($('json').textContent); $('copyNote').textContent = 'Copied.'; }
+  catch (e) { const sel = getSelection(); const rg = document.createRange(); rg.selectNodeContents($('json')); sel.removeAllRanges(); sel.addRange(rg); $('copyNote').textContent = 'Press Ctrl+C or ⌘C to copy the selected JSON.'; }
+};
+function updateButtons() {
+  const has = !!state.current && !!state.et;
+  $('applyBtn').disabled = !has;
+  $('jsonBtn').disabled = !has;
+  $('saveBtn').disabled = !has || !state.edits;
+  $('resetBtn').disabled = !state.edits;
+}
+
+// ---------------------------------------------------------------- UI wiring
+function selectTab(name) {
+  for (const t of ['tags', 'edit', 'changes', 'json']) {
+    $('tab-' + t).setAttribute('aria-selected', String(t === name));
+    $('view-' + t).hidden = t !== name;
+  }
+}
+for (const t of ['tags', 'edit', 'changes', 'json']) $('tab-' + t).onclick = () => selectTab(t);
+for (const f of [0, 1, 2]) $('fam' + f).onclick = async () => {
+  state.family = f;
+  for (const g of [0, 1, 2]) $('fam' + g).setAttribute('aria-pressed', String(g === f));
+  if (state.current) await refresh(false);
+};
+$('raw').onchange = async () => { state.raw = $('raw').checked; if (state.current) await refresh(false); };
+$('filter').oninput = () => renderSheet();
+$('form').onsubmit = apply;
+$('addRow').onclick = addCustomRow;
+async function openFile(file) {
+  if (!file || !state.et) return;
+  setStatus(`Reading ${file.name}…`);
+  try {
+    await openData(new Uint8Array(await file.arrayBuffer()), file.name, false);
+    setStatus(`Ready · ExifTool ${state.et.version}`, 'ready');
+  } catch (e) { setStatus('Could not read the file: ' + (e && e.message || e), 'err'); }
+}
+$('fileInput').onchange = (e) => openFile(e.target.files[0]);
+const drop = $('drop');
+drop.addEventListener('dragover', (e) => { e.preventDefault(); drop.classList.add('over'); });
+drop.addEventListener('dragleave', () => drop.classList.remove('over'));
+drop.addEventListener('drop', (e) => { e.preventDefault(); drop.classList.remove('over'); openFile(e.dataTransfer.files[0]); });
+document.addEventListener('dragover', (e) => e.preventDefault());
+document.addEventListener('drop', (e) => { if (!drop.contains(e.target)) { e.preventDefault(); openFile(e.dataTransfer.files[0]); } });
+init();
+</script>

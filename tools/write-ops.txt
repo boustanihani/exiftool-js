@@ -1,0 +1,56 @@
+# Write operations for tools/diff-write-all.sh: NAME|ARG|ARG...  (see tools/pl/write.pl)
+artist|EXIF:Artist=Hani Test
+desc|ImageDescription=description äöü
+xmp|XMP:Title=Ünïcödé title|XMP:Subject=a|XMP:Subject+=b
+iptc|IPTC:Keywords=k1|IPTC:Keywords+=k2|IPTC:City=Berlin
+gps|GPSLatitude=52.5|GPSLatitudeRef=N|GPSLongitude=13.4|GPSLongitudeRef=E
+gpsneg|GPSLatitude=-33.856|GPSLatitudeRef=S|GPSLongitude=-70.65|GPSLongitudeRef=W|GPSAltitude=-12.5|GPSAltitudeRef=Below Sea Level|GPSDateStamp=2024:05:06|GPSTimeStamp=12:34:56.78
+date|DateTimeOriginal=2020:01:02 03:04:05|CreateDate=2021:02:03 04:05:06
+delall|-all
+delxmp|-xmp:all|-iptc:all
+copy|-copy|t/images/Canon.jpg
+shift|{Shift=1}AllDates=1:2:3 4:5:6
+shiftneg|{Shift=-1}DateTimeOriginal=0:0:1 0:0:0|{Shift=1}ModifyDate=0:0:0 12:00:00
+timeall|{Shift=1}Time:All=0:0:0 1:0:0
+delmn|-MakerNotes:All
+delthumb|-ThumbnailImage
+setthumb|ThumbnailImage@=t/images/Writer.jpg
+icc|ICC_Profile@=t/images/ICC_Profile.icc
+delicc|-ICC_Profile
+struct|XMP-iptcExt:LocationShown={City=Berlin,CountryName=Germany}|XMP-iptcCore:CreatorContactInfo={CiAdrCity=Berlin,CiEmailWork=a@b.c}
+flatstruct|XMP:LocationCreatedCity=Paris|XMP:LocationCreatedCountryName=France|XMP:CreatorWorkEmail=x@y.z
+langalt|XMP-dc:Title-de=Titel|XMP-dc:Description=desc|XMP-dc:Description-fr=déscription|XMP-dc:Title=default title
+delgroups|-EXIF:All|-Photoshop:All
+delifd1|-IFD1:All|-GPS:All
+delalladd|-all|Artist=me|XMP:Title=new
+redirect|-copy|t/images/Canon.jpg::XMP:Description<EXIF:Make;;XMP:Title<Model;;IPTC:Headline<Make
+copyall2xmp|-copy|t/images/Nikon.jpg::all:all>xmp:all
+copyexif|-copy|t/images/Olympus.jpg::EXIF:All;;-ExifIFD:ExposureTime
+charset|-opt|Charset=Latin|IPTC:Caption-Abstract=caf\xe9|XMP:Title=caf\xe9
+iptcutf8|{Protected=1}IPTC:CodedCharacterSet=UTF8|IPTC:Caption-Abstract=Grüße aus Berlin|IPTC:ObjectName=Ärger
+numeric|Orientation#=6|ExposureTime=1/250|FNumber=2.8|ISO=400|FocalLength=50|Flash=Fired|ExposureCompensation=-1/3|UserComment=hello
+printconv0|-opt|PrintConv=0|Orientation=8|Flash=1|MeteringMode=5
+interop|InteropIndex=R98|ExifVersion=0231|ColorSpace=sRGB
+comment|Comment=new JPEG comment|JFIF:XResolution=300|JFIF:YResolution=300
+delcomment|-Comment|-JFIF:All
+tz|XMP:DateCreated=2020:01:02 03:04:05+02:00|OffsetTimeOriginal=+02:00|OffsetTime=-05:00
+editonly|{EditOnly=1}XMP:Title=edit only|{EditOnly=1}EXIF:Artist=edit artist
+listsplit|-opt|ListSplit=,|XMP:Subject=one,two,three|IPTC:Keywords=x,y
+replace|XMP:Subject=first|{Replace=1}XMP:Subject=second
+bigxmp|XMP:Description~=70000
+bigiptc|IPTC:Caption-Abstract~=1900
+memio|-memin|-memout|XMP:Title=mem|EXIF:Artist=mem
+twostep|EXIF:Artist=step1|XMP:Title=step1|-step|-EXIF:Artist|XMP:Subject=step2
+compact|-opt|Compact=Shorthand|XMP:Title=short|XMP:Rating=3
+rating|XMP:Rating=5|XMP-xmp:Label=Red|Rating=4|RatingPercent=80
+copyright|Copyright=© 2026 DW|XMP-dc:Rights=© 2026 DW|IPTC:CopyrightNotice=(c) 2026 DW|XMP-xmpRights:Marked=True
+creator|XMP-dc:Creator=Hani|XMP-dc:Creator+=Other|EXIF:Artist=Hani; Other|IPTC:By-line=Hani|IPTC:By-line+=Other
+mwgregion|XMP-mwg-rs:RegionInfo={AppliedToDimensions={W=640,H=480,Unit=pixel},RegionList=[{Area={X=0.5,Y=0.5,W=0.1,H=0.1,Unit=normalized},Name=Face,Type=Face}]}
+selfcopy|-copy|%IN%
+mncopy|-copy|%IN%::MakerNotes:All
+exif2xmp|-copy|%IN%::EXIF:All>XMP:All
+setpreview|PreviewImage@=t/images/Writer.jpg
+delpreview|-PreviewImage|-OtherImage
+deltrailer|-Trailer:All
+mncanon|Canon:OwnerName=Hani
+orient|Orientation#=6|XMP-tiff:Orientation#=8

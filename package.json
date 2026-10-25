@@ -1,0 +1,32 @@
+{
+  "name": "exiftool-js",
+  "version": "0.1.0",
+  "description": "ExifTool by Phil Harvey, translated to JavaScript: read and write image metadata (JPEG, TIFF, PNG, WebP, HEIC) in the browser",
+  "type": "module",
+  "main": "dist/exiftool.js",
+  "exports": {
+    ".": "./dist/exiftool.js",
+    "./worker": "./dist/exiftool-worker.js"
+  },
+  "license": "(Artistic-1.0-Perl OR GPL-1.0-or-later)",
+  "author": "Hani Boustani",
+  "homepage": "https://boustanihani.github.io/exiftool-js/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/boustanihani/exiftool-js.git"
+  },
+  "bugs": {
+    "url": "https://github.com/boustanihani/exiftool-js/issues"
+  },
+  "keywords": ["exiftool", "exif", "xmp", "iptc", "metadata", "jpeg", "tiff", "png", "webp", "heic", "browser"],
+  "private": true,
+  "scripts": {
+    "build": "node tools/build-dist.mjs --minify",
+    "translate": "node tools/perl2js/build.js build upstream/lib upstream/t=t/ tools/pl=tools/ src/perl",
+    "test": "bash tools/run-all.sh"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2",
+    "playwright": "1.56.0"
+  }
+}

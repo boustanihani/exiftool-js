@@ -1,0 +1,5 @@
+/*! exiftool-js: Image/ExifTool/GE.pm of ExifTool 13.59 (https://exiftool.org), translated to JavaScript. ExifTool is Copyright 2003-2026, Phil Harvey. Free software; you can redistribute it and/or modify it under the same terms as Perl itself (either the Perl Artistic License or GPL), like ExifTool. See LICENSE.txt. */
+import{PL as e,H as a}from"../../../runtime/perl.js";e.module("Image/ExifTool/GE.pm",function(){const o=e.pkg("Image::ExifTool::GE"),i=e.pkg("Image::ExifTool::Exif");e.declVars(o,["Main"],[]),e.use("Image::ExifTool",o,[":DataAccess",":Utils"]),e.use("Image::ExifTool::Exif",o),o.$VERSION="1.00",e.hset(o.Main,a({WRITE_PROC:e.subref(i,"WriteExif"),CHECK_PROC:e.subref(i,"CheckExif"),WRITABLE:1,GROUPS:a({0:"MakerNotes",2:"Camera"}),NOTES:`
+        This table lists tags found in the maker notes of some General Imaging
+        camera models.
+    `,514:a({Name:"Macro",Writable:"int16u",PrintConv:a({0:"Off",1:"On"})}),519:a({Name:"GEModel",Format:"string"}),768:a({Name:"GEMake",Format:"string"})}))});
