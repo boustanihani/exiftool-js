@@ -1,5 +1,17 @@
 # exiftool-js
 
+> **Proof of concept – looking for a maintainer.** exiftool-js was created by Hani
+> Boustani with Claude Opus (Anthropic) to show that ExifTool can run entirely in the
+> browser. It passes ExifTool's own test suite and large side-by-side comparisons with Perl
+> ExifTool, but it is not yet proven in production.
+>
+> **I am not able to maintain this repository.** If you would like to take over the
+> project and continue the work, please contact me at
+> [boustanihani@gmail.com](mailto:boustanihani@gmail.com). I'll gladly hand it over.
+>
+> exiftool-js is an independent project, not affiliated with ExifTool. Please don't send
+> questions or bug reports about it to the ExifTool author or forum.
+
 [ExifTool](https://exiftool.org) by Phil Harvey, translated to JavaScript so it runs
 entirely in the browser: read and write metadata of **JPEG, TIFF, PNG, WebP and HEIC**
 images (and read BMP), including EXIF, XMP, IPTC, ICC profiles, GPS and manufacturer
@@ -11,12 +23,6 @@ This is not a re-implementation. A Perl-to-JavaScript translator (`tools/perl2js
 converts ExifTool's own Perl source (version **13.59**) into JavaScript modules that run on
 a small runtime emulating Perl. Results are checked against the original ExifTool (see
 [Testing](#testing)).
-
-> **Status: proof of concept.** exiftool-js was created by Hani Boustani with Claude Opus
-> (Anthropic). It passes ExifTool's own test suite and large side-by-side comparisons with
-> Perl ExifTool, but it is new and not yet proven in production. It is an independent
-> project, not affiliated with ExifTool: please report problems here, not to the ExifTool
-> author or forum.
 
 ## Repository
 
